@@ -7,7 +7,7 @@ import streamlit as st
 import re
 
 API_URL = os.getenv("API_URL", "http://localhost:8000/ask")
-K_TOP = int(os.getenv("RETRIEVAL_TOPK", "8"))
+K_TOP = int(os.getenv("RETRIEVAL_TOPK", "5"))
 
 st.set_page_config(page_title="KT STB 개발 도우미", layout="wide", initial_sidebar_state="expanded")
 
@@ -24,6 +24,7 @@ if "current_sid" not in st.session_state:
     }
 
 # --- 세션 조작 ---
+# 새 채팅 세션 생성
 def new_chat():
     cur = st.session_state.sessions.get(st.session_state.current_sid)
     if cur and not cur["messages"]:
@@ -36,14 +37,16 @@ def new_chat():
     }
     st.session_state.current_sid = sid
 
+# 채팅 히스토리 세션 선택(활성화 표시)
 def select_chat(sid: str):
     st.session_state.current_sid = sid
 
+# 채팅 히스토리 세션 삭제
 def delete_chat(sid: str):
     was = sid == st.session_state.current_sid
     st.session_state.sessions.pop(sid, None)
     if not st.session_state.sessions:
-        new_chat()
+        new_chat()  #모두 삭제될 경우 새채팅 생성
         return
     if was:
         rest = sorted(
@@ -54,12 +57,14 @@ def delete_chat(sid: str):
         st.session_state.current_sid = rest[0][0]
 
 # --- 표시 유틸 ---
+# 답변 텍스트에서 페이지 제거(올바른 페이지 출력X)
 def sanitize_answer(text: str) -> str:
     if not text:
         return text
     # '#page=숫자' 형태의 페이지 앵커 제거
     return re.sub(r'#page=\d+', '', text, flags=re.IGNORECASE)
 
+# 참고문헌 렌더링 유틸
 def render_references(citations: list[dict]) -> str:
     if not citations:
         return ""
@@ -97,10 +102,10 @@ for msg in session["messages"]:
             st.markdown(render_references(msg["citations"]))
 
 # 입력 → 백엔드 호출 → 응답 표시
-prompt = st.chat_input("메시지를 입력하세요.")
+prompt = st.chat_input("메시지를 입력하세요.")  # 사용자 입력
 if prompt:
     # 사용자 메시지 저장/표시
-    session["messages"].append({"role": "user", "content": prompt})
+    session["messages"].append({"role": "user", "content": prompt}) #사용자 입력을 세션 message에 user role로 저장.
     with st.chat_message("user"):
         st.markdown(prompt)
 
@@ -119,20 +124,21 @@ if prompt:
     with st.chat_message("assistant"):
         with st.spinner("답변 생성 중..."):
             try:
+                # 사용자 입력으로 Flask API 호출(question, k, history)
                 r = requests.post(
                     API_URL,
                     json={"question": prompt, "k": K_TOP, "history": hist},
                     timeout=120,
                 )
-                r.raise_for_status()
-                data = r.json()
-                answer = (data.get("answer") or "").strip() or "_(빈 응답)_"
-                citations = data.get("citations", [])
-                st.markdown(sanitize_answer(answer))
+                r.raise_for_status()    # HTTP 오류 발생 시 예외
+                data = r.json()      # JSON 응답 파싱
+                answer = (data.get("answer") or "").strip() or "_(빈 응답)_"    #질문에 대한 답변 저장
+                citations = data.get("citations", [])                         #질문에 대한 답변의 출처 저장   
+                st.markdown(sanitize_answer(answer))                      #답변 표시
                 if citations:
-                    st.markdown(render_references(citations))
+                    st.markdown(render_references(citations))             #출처가 있으면 출처 표시
                 session["messages"].append(
-                    {"role": "assistant", "content": answer, "citations": citations}
+                    {"role": "assistant", "content": answer, "citations": citations}      #답변을 세션 message에 assistant role로 저장.
                 )
             except Exception as e:
                 err = f"요청 실패: {e}"

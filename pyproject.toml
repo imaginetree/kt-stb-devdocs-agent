@@ -8,6 +8,7 @@ dependencies = [
     "azure-search-documents>=11.5.3",
     "flask>=3.1.2",
     "flask-cors>=6.0.1",
+    "gradio>=5.47.2",
     "langchain-openai>=0.3.33",
     "openai>=1.109.0",
     "pymupdf>=1.26.4",
