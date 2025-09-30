@@ -1,4 +1,3 @@
-# src/ui/streamlit_app.py
 import os
 import uuid
 import requests

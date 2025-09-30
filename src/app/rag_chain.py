@@ -1,4 +1,3 @@
-# src/app/rag_chain.py
 import os
 from typing import List, Dict, Any
 from langchain_openai import AzureChatOpenAI

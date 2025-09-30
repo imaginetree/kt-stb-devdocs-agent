@@ -1,4 +1,3 @@
-# src/app/retriever.py
 from typing import List, Dict, Any
 from azure.core.credentials import AzureKeyCredential
 from azure.search.documents import SearchClient

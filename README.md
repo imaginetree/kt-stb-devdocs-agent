@@ -73,6 +73,21 @@ uv run streamlit run src/ui/streamlit_app.py
 streamlit run src/ui/streamlit_app.py
 ```
 
+## Azure 리소스 준비
+1. **리소스 그룹**: 동일 지역(예: Korea Central)에 리소스를 모아 관리.
+2. **Azure OpenAI**: Azure AI Foundry에서 Chat(`gpt-4.1-mini`)과 Embedding(`text-embedding-3-small`) 모델을 각각 배포.
+3. **Azure AI Search**: 기본(Basic) 요금제 이상으로 생성하고 관리 키를 확보.
+4. **Azure Storage**: 규격서/PDF를 업로드할 Blob 컨테이너 생성.
+5. **환경 변수 등록**: 위 리소스의 Endpoint/Key/배포 이름을 `.env`와 App Service 설정에 동일하게 입력.
+
+## Azure AI Search 색인 구성
+1. Blob 컨테이너에 STB 문서를 업로드한다(`docs/` 폴더 내용 참고).
+2. Azure AI Search 포털에서 **데이터 소스 → 스킬셋 → 인덱스** 순으로 "RAG" 템플릿을 사용해 파이프라인을 만든다.
+3. 인덱스 스키마에 `source`, `path`, `title`, `contentVector` 등을 포함하고 필요 시 사용자 정의 필드를 추가한다.
+4. 스킬셋 출력 매핑에도 `source`, `path`를 연결해 문서 출처를 유지한다.
+5. 인덱싱을 실행하고 결과가 반영되었는지 Search 탐색기에서 질의로 확인한다.
+6. 인덱스 이름과 관리 키를 `.env`에 기입한다(`AZURE_SEARCH_INDEX`, `AZURE_SEARCH_API_KEY`).
+
 ## 프로젝트 구조
 ```
 .
@@ -92,11 +107,36 @@ streamlit run src/ui/streamlit_app.py
 └── README.md
 ```
 
-## Azure AI Search 색인 준비 메모
-1. Azure Storage 컨테이너에 STB 규격서 PDF 업로드.(/docs/*)
-2. Azure AI Search에서 Data Source → Skillset → Index를 생성하고 `source`, `path` 필드를 인덱스에 포함.
-3. 포털의 "RAG" 템플릿으로 인덱싱 후 필요한 경우 재색인.
-4. 인덱스 이름과 관리 키를 `.env`에 입력
+## Azure Portal 배포(App Service)
+### 1. 공통 설정
+- App Service 런타임: Python 3.11(Linux), 플랜은 B1 이상 권장.
+- 지역은 다른 리소스와 동일하게 맞추고, 네트워크 정책이 있다면 가상 네트워크 통합을 검토한다.
+- **지속적 배포**: 배포 탭에서 GitHub를 연결하면 `main` 브랜치 푸시 시 자동으로 빌드/배포된다.
+
+### 2. API(App Service A)
+1. App Service를 생성한 뒤 **설정 → 구성 → 애플리케이션 설정**에 `.env` 값들을 그대로 추가한다.
+2. `API_URL`은 UI 앱에서 사용하므로 굳이 입력하지 않아도 된다.
+3. **시작 명령**에 다음을 입력한다.
+   ```
+   gunicorn -w 2 -k gthread -t 120 -b 0.0.0.0:8000 src.app.main:app
+   ```
+4. 저장 후 앱을 재시작하고 `https://{API-도메인}/health`로 헬스체크를 확인한다.
+
+### 3. UI(App Service B)
+1. 동일 플랜으로 별도 App Service를 만들고 GitHub 연동을 활성화한다.
+2. **애플리케이션 설정**에 `API_URL=https://{API-도메인}/ask`를 포함해 API 엔드포인트를 명시한다.
+3. Streamlit에서 사용하는 필수 환경변수가 있다면 이곳에 함께 정의한다.
+4. **시작 명령**은 다음과 같이 지정한다.
+   ```
+   streamlit run src/ui/streamlit_app.py --server.port 8000 --server.address 0.0.0.0
+   ```
+5. 배포 후 `https://{UI-도메인}` 접속과 API 호출이 정상 동작하는지 확인한다.
+
+### 4. 운영 체크리스트
+- App Service `Always On`을 활성화해 워커 슬립을 방지한다.
+- Azure Monitor 또는 Application Insights를 연동해 오류/성능 로그를 수집한다.
+- Scale-out이 필요하면 App Service 플랜의 수평 확장 슬라이더로 인스턴스를 조정한다.
+- 장애 대비를 위해 주요 환경 변수와 Search 인덱스 구성을 IaC(Bicep/Terraform)로 추출해 두는 것을 권장한다.
 
 ## 커스터마이징
 - 프롬프트 수정: `src/app/prompts/system_ko.md`에서 응답 스타일과 정책을 조정합니다.
