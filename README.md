@@ -145,3 +145,8 @@ streamlit run src/ui/streamlit_app.py
 
 ## 시퀀스 다이어그램
 ![시퀀스 다이어그램](setting_docs/sequence.png)
+
+
+
+## 라이브 데모
+[LIVE DEMO >> ](https://ktds618-mvp-ui.azurewebsites.net/)
