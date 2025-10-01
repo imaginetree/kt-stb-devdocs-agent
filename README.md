@@ -149,4 +149,6 @@ streamlit run src/ui/streamlit_app.py
 
 
 ## 라이브 데모
-[LIVE DEMO >> ](https://ktds618-mvp-ui.azurewebsites.net/)
+[LIVE DEMO Streamlit UI >> ](https://ktds618-mvp-ui.azurewebsites.net/)
+
+[LIVE DEMO Gradio UI >> ](https://ktds618-mvp-ui2.azurewebsites.net/)
